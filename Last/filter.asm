@@ -1,13 +1,15 @@
-%define input_length [ebp+12]
+
+    %define input_length [ebp+12]
 %define filter_length [ebp+20]
+%define result [ebp + 24]
 
 segment .bss
 
 input: resd 1000
 filter: resd 1000
-zero: dd 0
+zero: resd 1000
 
-output: resd 100
+output: times 4 resd 0
 real: resd 100
 
 
@@ -18,29 +20,21 @@ correlate:
 
     enter 0 ,0
     pusha
-    mov esi,0
-    mov eax , [ebp + 8]
-get_input:    
-    mov [input + 400 + 4*esi] , eax
-    add eax , 4
-    cmp esi , input_length
-    jge end_get_input
-    add esi ,1
-    jmp get_input
 
-end_get_input:
 
-    mov esi , 0
-    mov eax , [ebp + 16]
-get_filter:
-    mov [filter + 400 + 4*esi] , eax
-    add eax , 4
-    cmp esi , filter_length
-    jge end_get_filter
-    add esi ,1
-    jmp get_filter
+    mov ecx, filter_length
+    mov esi , [ebp + 16]
+    mov edi , filter + 400
+    cld
+    rep movsd
 
-end_get_filter:
+    mov ecx, input_length
+    mov esi , [ebp+8]
+    mov edi , input+400
+    cld
+    rep movsd
+
+
 
     mov esi , 0                            ;i
 loop1:
@@ -55,15 +49,16 @@ loop2:
     jge end_loop2
 	;------------------------ calculate real = i + j - filter.length/2
 	mov ecx , esi
-	add ecx , esi
+	add ecx , edi
 	mov ebx , filter_length
 	shr ebx , 1
 	sub ecx , ebx
-	shl ecx , 2
+	;add ecx , ecx
+    ;add ecx , ecx
 
-	;------------------------
-	movups xmm1 , [input + ecx]
-	movups xmm2 , [filter + 4 * edi]
+	;------------------------ 
+	movups xmm1 , [input + 4*ecx + 400]
+	movups xmm2 , [filter + 4*edi + 400]
 	mulps xmm1 , xmm2
 	addps xmm0 , xmm1 
 
@@ -75,8 +70,12 @@ end_loop2:
 	addss xmm0 , [output + 4]
 	addss xmm0 , [output + 8]
 	addss xmm0 , [output + 12]
-	mov ecx , [ebp + 24]
-	movss [ecx + 4*esi] , xmm0
+	mov ebx , result
+    ;mov edx , [testy]
+
+	movss [ebx + 4*esi] , xmm0               ;!!!!!!1
+
+	;movss [ebp + 4*esi + 24] , xmm0                  
 
     add esi , 1
     jmp loop1
@@ -85,4 +84,4 @@ end_loop1:
 
     popa       
     leave
-    ret         
+    ret              
